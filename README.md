@@ -4,6 +4,8 @@ A cute, pastel-pink styled web tool to validate Scribd document links, extract t
 
 **Author**: Hoang Khac Phuc
 
+**Live Demo**: [https://hoangkhacphuc.github.io/tmee-extension/](https://hoangkhacphuc.github.io/tmee-extension/)
+
 ## Features
 
 - **Cute Pastel Aesthetic**: Soft pink theme with gentle gradients and rounded glassmorphism cards.
