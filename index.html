@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="author" content="Hoang Khac Phuc">
+  <title>Scribd Embed Link Converter</title>
+  
+  <!-- Soft Google Font for cute aesthetics -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient floating pastel elements -->
+  <div class="bg-decorations" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <main class="app-container">
+    <div class="main-card">
+      <!-- Card Header -->
+      <header class="card-header">
+        <div class="header-icon-badge" aria-hidden="true">
+          <span class="icon-symbol">🌸</span>
+        </div>
+        <h1 class="title">Scribd Embed Converter</h1>
+        <p class="subtitle">Paste your Scribd document link to generate its direct embed view</p>
+      </header>
+
+      <!-- Single Input Form Field -->
+      <section class="input-section">
+        <label for="scribd-url-input" class="input-label">Scribd Document URL</label>
+        <div class="input-wrapper">
+          <span class="input-icon" aria-hidden="true">🔗</span>
+          <input 
+            type="text" 
+            id="scribd-url-input" 
+            class="url-input" 
+            placeholder="https://www.scribd.com/document/123456789/......" 
+            autocomplete="off" 
+            spellcheck="false"
+          >
+          <button type="button" id="clear-input-btn" class="clear-button" title="Clear input" aria-label="Clear input">✕</button>
+        </div>
+        <p class="input-hint">
+          Try sample: <span id="sample-link" class="sample-link" role="button" tabindex="0">https://www.scribd.com/document/123456789/......</span>
+        </p>
+      </section>
+
+      <!-- Status & Output Containers -->
+      <section class="status-container" aria-live="polite">
+        <!-- Initial Idle Prompt -->
+        <div id="idle-card" class="idle-card">
+          <div class="idle-emoji" aria-hidden="true">✨</div>
+          <p class="idle-text">Enter a link above to extract the Document ID and get your embed link</p>
+        </div>
+
+        <!-- Error Card -->
+        <div id="error-card" class="error-card hidden" role="alert">
+          <span class="error-icon" aria-hidden="true">⚠️</span>
+          <p id="error-message" class="error-text">Please enter a valid link from scribd.com</p>
+        </div>
+
+        <!-- Result Success Card -->
+        <div id="result-card" class="result-card hidden">
+          <div class="result-header">
+            <span class="status-badge">
+              <span class="badge-dot"></span> Valid Scribd Document
+            </span>
+            <div class="id-badge">
+              ID: <span id="doc-id-display" class="id-highlight">--</span>
+            </div>
+          </div>
+
+          <div class="link-preview-box">
+            <span class="box-label">Embed URL</span>
+            <div id="embed-url-text" class="link-url-text">https://www.scribd.com/embeds/.../content</div>
+          </div>
+
+          <div class="action-buttons-row">
+            <a 
+              id="open-embed-link" 
+              href="#" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              class="open-tab-btn"
+            >
+              <span>Open in New Tab</span>
+              <span class="btn-arrow" aria-hidden="true">↗</span>
+            </a>
+            <button type="button" id="copy-embed-btn" class="copy-btn">
+              <span aria-hidden="true">📋</span>
+              <span id="copy-btn-text">Copy Link</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card Footer -->
+      <footer class="card-footer">
+        <span>Made with</span>
+        <span class="heart-icon" aria-hidden="true">💖</span>
+        <span>by Hoang Khac Phuc</span>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    /**
+     * Scribd Embed Link Generator
+     * Author: Hoang Khac Phuc
+     * Parses Scribd document URLs and produces direct embed links.
+     */
+    const scribdInput = document.getElementById('scribd-url-input');
+    const clearBtn = document.getElementById('clear-input-btn');
+    const idleCard = document.getElementById('idle-card');
+    const errorCard = document.getElementById('error-card');
+    const errorMessage = document.getElementById('error-message');
+    const resultCard = document.getElementById('result-card');
+    const docIdDisplay = document.getElementById('doc-id-display');
+    const embedUrlText = document.getElementById('embed-url-text');
+    const openEmbedLink = document.getElementById('open-embed-link');
+    const copyBtn = document.getElementById('copy-embed-btn');
+    const copyBtnText = document.getElementById('copy-btn-text');
+    const sampleLink = document.getElementById('sample-link');
+
+    /**
+     * Parses and validates an entered URL for Scribd document patterns.
+     * @param {string} rawInput - The user input string.
+     * @returns {object} Validation result containing state, id, and embedUrl.
+     */
+    function parseScribdUrl(rawInput) {
+      const trimmed = rawInput.trim();
+
+      // Handle empty state
+      if (!trimmed) {
+        return { state: 'empty' };
+      }
+
+      // Add protocol if missing for proper URL parsing
+      let normalized = trimmed;
+      if (!/^https?:\/\//i.test(normalized)) {
+        normalized = 'https://' + normalized;
+      }
+
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(normalized);
+      } catch (error) {
+        return {
+          state: 'error',
+          message: 'Invalid URL format. Please paste a valid web address.'
+        };
+      }
+
+      // Ensure domain is scribd.com or its subdomain
+      const isScribd = /(^|\.)scribd\.com$/i.test(parsedUrl.hostname);
+      if (!isScribd) {
+        return {
+          state: 'error',
+          message: 'This link is not from scribd.com. Please provide a Scribd link.'
+        };
+      }
+
+      // Extract numeric document ID from path (/document/12345/..., /doc/12345/..., or /embeds/12345/...)
+      const match = parsedUrl.pathname.match(/\/(?:document|doc|embeds)\/(\d+)/i);
+      if (!match || !match[1]) {
+        return {
+          state: 'error',
+          message: 'Could not extract a valid document ID from this Scribd link.'
+        };
+      }
+
+      const docId = match[1];
+      const embedUrl = `https://www.scribd.com/embeds/${docId}/content`;
+
+      return {
+        state: 'success',
+        docId,
+        embedUrl
+      };
+    }
+
+    /**
+     * Updates the UI based on URL parsing state.
+     */
+    function updateUI() {
+      const inputValue = scribdInput.value;
+      const result = parseScribdUrl(inputValue);
+
+      // Toggle clear button
+      if (inputValue.length > 0) {
+        clearBtn.classList.add('is-visible');
+      } else {
+        clearBtn.classList.remove('is-visible');
+      }
+
+      // Update state cards
+      if (result.state === 'empty') {
+        idleCard.classList.remove('hidden');
+        errorCard.classList.add('hidden');
+        resultCard.classList.add('hidden');
+      } else if (result.state === 'error') {
+        idleCard.classList.add('hidden');
+        errorCard.classList.remove('hidden');
+        errorMessage.textContent = result.message;
+        resultCard.classList.add('hidden');
+      } else if (result.state === 'success') {
+        idleCard.classList.add('hidden');
+        errorCard.classList.add('hidden');
+        resultCard.classList.remove('hidden');
+
+        // Update document ID and embed links
+        docIdDisplay.textContent = result.docId;
+        embedUrlText.textContent = result.embedUrl;
+        openEmbedLink.href = result.embedUrl;
+
+        // Reset copy button status
+        copyBtn.classList.remove('is-copied');
+        copyBtnText.textContent = 'Copy Link';
+      }
+    }
+
+    // Input listeners
+    scribdInput.addEventListener('input', updateUI);
+
+    // Clear input button
+    clearBtn.addEventListener('click', () => {
+      scribdInput.value = '';
+      scribdInput.focus();
+      updateUI();
+    });
+
+    // Sample link click
+    if (sampleLink) {
+      sampleLink.addEventListener('click', () => {
+        scribdInput.value = sampleLink.textContent.trim();
+        updateUI();
+      });
+    }
+
+    // Copy embed URL to clipboard
+    copyBtn.addEventListener('click', async () => {
+      const urlToCopy = embedUrlText.textContent;
+      if (!urlToCopy) return;
+
+      try {
+        await navigator.clipboard.writeText(urlToCopy);
+        copyBtn.classList.add('is-copied');
+        copyBtnText.textContent = 'Copied! ✨';
+        setTimeout(() => {
+          copyBtn.classList.remove('is-copied');
+          copyBtnText.textContent = 'Copy Link';
+        }, 2500);
+      } catch (err) {
+        const textarea = document.createElement('textarea');
+        textarea.value = urlToCopy;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+
+        copyBtn.classList.add('is-copied');
+        copyBtnText.textContent = 'Copied! ✨';
+        setTimeout(() => {
+          copyBtn.classList.remove('is-copied');
+          copyBtnText.textContent = 'Copy Link';
+        }, 2500);
+      }
+    });
+
+    // Initial check
+    updateUI();
+  </script>
+</body>
+</html>
